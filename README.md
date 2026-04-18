@@ -1,38 +1,143 @@
-# SPIKE-handler
+# SPIKE 项目协作工具集 – 使用指南
 
-#### 介绍
-SPIKE 项目版本控制工具集
-解包/打包 .llsp3 文件，集成 Git 管理 + 一键清理缓存，支持 Git 回退。
+本工具集用于管理 **SPIKE 格式项目（.llsp3）** 与 Git 版本控制的协同工作。通过以下脚本，您可以：
 
-#### 软件架构
-软件架构说明
+- 自动初始化 Git 仓库并配置用户信息
+- 解压 `.llsp3` 文件并递归处理内部的 `scratch.sb3`
+- 将修改后的项目重新打包为 `.llsp3`
+- 一键清除 SPIKE 产生的缓存文件，避免版本混乱
+- 利用 VSCode 图形化界面进行版本管理，并支持回退到任意历史版本
 
+## 脚本说明
 
-#### 安装教程
+### 1. `git_repo_check.py` – Git 仓库初始化与配置
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+- **功能**：检测当前目录是否为 Git 仓库，根据状态执行相应操作。
+  - 若不是仓库：执行 `git init`，设置本地用户名 `SPIKE-handler` 和邮箱 `SPIKE-handler.com`，创建并切换到 `dev` 分支。
+  - 若是仓库但缺少本地用户配置：自动补全。
+  - 若已完整配置：询问是否删除 `.git` 并重新初始化。
+- **输出**：控制台日志，完成后等待按键退出。
 
-#### 使用说明
+### 2. `extractor.py` – 解包 `.llsp3` 文件
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+- **功能**：纯 CUI 交互式解压工具。
+  - 扫描同级目录下所有 `.llsp3` 文件。
+  - 将每个文件解压到 `./package-manager/同名文件夹/`，保持内部目录结构。
+  - 若解压后存在 `scratch.sb3`，则将其解压到 `同名文件夹/scratch/` 并删除原 `.sb3`。
+  - 支持冲突处理：覆盖、跳过、重命名已有目录、重命名新目录、全部覆盖、退出。
+- **使用**：双击 `extractor.py` 或在终端运行 `python extractor.py`，按提示操作。
 
-#### 参与贡献
+### 3. `repacker.py` – 重打包为 `.llsp3` 文件
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+- **功能**：将 `./package-manager/` 下的子目录逆向打包为 `.llsp3`。
+  - 自动将每个子目录内的 `scratch/` 文件夹压缩为 `scratch.sb3`，并删除原文件夹。
+  - 再将整个子目录（包含新生成的 `scratch.sb3` 及其他文件）打包为同名 `.llsp3` 文件（无顶层文件夹）。
+  - 支持打包前修改输出文件名、目标文件冲突时重命名已有/新文件等交互选项。
+  - **打包完成后会询问是否清除 SPIKE 缓存**（调用 `clear_spike_cache.py`）。
+- **使用**：双击 `repacker.py`，选择要打包的子目录（输入编号或 `all`），按提示操作。
 
+### 4. `clear_spike_cache.py` – 清除 SPIKE 缓存
 
-#### 特技
+- **功能**：删除 SPIKE 软件生成的缓存文件和用户数据目录，解决因缓存导致的版本混乱问题。
+  - 删除 `%USERPROFILE%\AppData\Roaming\SPIKE3\` 整个目录
+  - 删除 `C:\Windows\Prefetch\SPIKE-*` 所有匹配的预读文件
+  - 删除 `%USERPROFILE%\Documents\LEGO Education SPIKE` 整个文件夹
+- **权限**：自动检测管理员权限，若无则请求提权（UAC）。
+- **交互**：
+  - 独立双击运行时：显示确认对话框，用户确认后执行删除，结束后等待按键。
+  - 被 `repacker.py` 调用时：使用静默模式（`--silent`），不询问直接执行。
+- **使用**：可单独运行清理缓存，也可由打包程序自动触发。
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+## 典型工作流程
+
+### 步骤 1：初始化 Git 仓库
+
+- 将 `git_repo_check.py` 放置到您希望管理 SPIKE 项目的**根目录**（例如 `MySPIKEProjects/`）。
+- 双击运行脚本，根据提示完成仓库初始化。  
+  *结果：目录下生成 `.git` 文件夹，已配置用户信息，当前分支为 `dev`。*
+
+### 步骤 2：编写或获取 SPIKE 项目
+
+- 在根目录中放置您的 `.llsp3` 文件（例如 `我的项目.llsp3`）。  
+- 使用 SPIKE 软件正常编写、保存。
+
+### 步骤 3：解包项目以便版本控制
+
+- 双击 `extractor.py`，脚本会自动列出所有 `.llsp3` 文件。
+- 按提示处理冲突（首次运行无冲突，直接解压）。
+- 解压后目录结构示例：
+
+  ```tree
+  MySPIKEProjects/
+  ├─ package-manager/
+  │  └─ 我的项目/
+  │     ├─ icon.svg
+  │     ├─ manifest.json
+  │     └─ scratch/         # 由 scratch.sb3 解压得到
+  │        ├─ project.json
+  │        └─ *.wav
+  ├─ 我的项目.llsp3          # 原始文件（可保留或删除）
+  ├─ extractor.py
+  └─ git_repo_check.py
+  ```
+
+### 步骤 4：使用图形化界面（例如 VSCode）进行 Git 管理
+
+- 用图形化界面（如 VSCode）打开根目录。
+- 点击左侧“源代码管理”图标，您会看到 `package-manager/` 下的所有变更。
+- 编写提交信息（例如“初始解压”），点击提交。
+- 后续每次修改 `scratch/` 内的资源或 `manifest.json` 后，图形化界面会显示差异，您可以随时提交新版本。
+
+### 步骤 5：回退到某个历史版本
+
+- 在 VSCode 源代码管理面板中，点击“···” → “分支” → “查看历史”。
+- 找到您想回退的提交，右键选择“检出”（checkout）。
+- 此时工作区会恢复到该提交时的状态，`package-manager/` 内的文件也会相应变回旧版本。
+- **注意**：回退后如需继续工作，建议从该位置创建新分支。
+
+### 步骤 6：将修改后的项目重新打包为 `.llsp3` 并清理缓存
+
+- 完成修改并提交后，双击 `repacker.py`。
+- 选择要打包的子目录（本例为“我的项目”）。
+- 根据需要回答重命名、冲突等问题。
+- 脚本会生成新的 `我的项目.llsp3` 文件（位于根目录），并**询问是否清除 SPIKE 缓存**。
+- 建议选择“是”，以删除 SPIKE 缓存，避免下次打开旧项目时显示错误内容。
+
+## 附加说明
+
+- **`.gitignore` 建议**：您可以在根目录手动创建 `.gitignore`，排除以下生成文件，避免仓库臃肿：
+
+  ```gitignore
+  *.llsp3
+  __pycache__/
+  *.pyc
+  .DS_Store
+  Thumbs.db
+  ```
+
+- **分支策略**：默认使用 `dev` 分支进行开发，当需要稳定版本时可自行创建 `main` 分支并合并。
+- **纯 CUI 设计**：所有脚本均不依赖图形界面，适合在无桌面环境的服务器或远程终端使用（但 VSCode 图形操作为可选步骤）。
+- **缓存清理机制**：SPIKE 软件会在运行后生成预读文件（`Prefetch`）和用户配置缓存，这些内容可能导致版本回退后 SPIKE 仍然显示旧项目内容。建议每次重新打包后执行一次清理。
+
+## 常见问题
+
+- **Q：解包时提示“未找到 Git”**  
+  A：`git_repo_check.py` 会检查 Git 是否安装，请先安装 Git 并确保 `git` 命令可用。
+
+- **Q：打包后生成的 `.llsp3` 无法被 SPIKE 识别？**  
+  A：请检查 `scratch/` 文件夹是否被正确压缩为 `scratch.sb3`，且 `manifest.json` 未被改动。运行 `repacker.py` 时会自动完成这一步。
+
+- **Q：清除缓存会删除我的项目文件吗？**  
+  A：`clear_spike_cache.py` 只会删除 SPIKE 的缓存目录和预读文件，**不会删除**您 Git 仓库中的任何代码或 `.llsp3` 文件。但会删除 `文档\LEGO Education SPIKE` 整个文件夹，如果您在该位置保存了重要数据，请提前备份。
+
+- **Q：为什么需要管理员权限？**  
+  A：删除 `C:\Windows\Prefetch` 下的文件需要管理员权限。脚本会自动请求提权。
+
+- **Q：能否同时管理多个 `.llsp3` 项目？**  
+  A：可以。`extractor.py` 和 `repacker.py` 都支持批量处理，只需将多个 `.llsp3` 文件放在同一目录即可。
+
+---
+
+**版本**：2.0  
+**适用环境**：Windows 10/11（需安装 Python 3.6+ 及 Git）  
+**维护者**：是季不是鸡
